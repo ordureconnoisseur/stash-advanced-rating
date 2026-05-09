@@ -19,6 +19,10 @@ jobs:
           mkdir -p plugins-repo/plugins/advancedPerformerRating
           cp -r * plugins-repo/plugins/advancedPerformerRating/ 2>/dev/null || true
           rm -rf plugins-repo/plugins/advancedPerformerRating/.github
+          # Strip the cloned plugins-repo that cp -r picked up — leaving it
+          # creates an embedded git submodule reference. Refract additionally
+          # strips screenshots/ here for install-zip size.
+          rm -rf plugins-repo/plugins/advancedPerformerRating/plugins-repo
 
       - name: Commit and push
         run: |
