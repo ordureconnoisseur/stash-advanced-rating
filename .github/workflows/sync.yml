@@ -1,0 +1,31 @@
+name: Sync to plugins repo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone plugins repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PLUGINS_REPO_TOKEN }}@github.com/ordureconnoisseur/plugins.git plugins-repo
+
+      - name: Copy files
+        run: |
+          mkdir -p plugins-repo/plugins/advancedPerformerRating
+          cp -r * plugins-repo/plugins/advancedPerformerRating/ 2>/dev/null || true
+          rm -rf plugins-repo/plugins/advancedPerformerRating/.github
+
+      - name: Commit and push
+        run: |
+          cd plugins-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugins/advancedPerformerRating/
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "sync: advancedPerformerRating $(git -C .. rev-parse --short HEAD)"
+          git push
