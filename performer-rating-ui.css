@@ -30,3 +30,87 @@
 .rating-star:hover { transform: scale(1.15); }
 .rating-clear { cursor: pointer; font-size: 1.4em; color: #dc3545; margin-left: 12px; padding: 0 5px; opacity: 0.6; }
 .rating-clear:hover { opacity: 1; }
+
+/* ── Settings panel (PluginApi.patch.instead) ───────────────────────── */
+/* Stash's default .setting flexes children with space-between and applies
+   text-align: right on some descendants. Anchor everything left for our
+   panel. */
+.apr-settings { width: 100%; }
+.apr-settings,
+.apr-settings .setting,
+.apr-settings .setting > div,
+.apr-settings .setting > div > * { text-align: left; }
+.apr-settings .setting { justify-content: flex-start; gap: 16px; }
+/* Grid rows must span the row's full width regardless of sibling content. */
+.apr-settings .apr-criterion-row,
+.apr-settings .apr-group-row {
+    width: 100%;
+    box-sizing: border-box;
+}
+.apr-settings .apr-criterion-main,
+.apr-settings .apr-group-main {
+    width: 100%;
+    box-sizing: border-box;
+}
+.apr-settings .apr-general-control { display: flex; align-items: center; gap: 8px; }
+.apr-settings .apr-general-control .form-control { max-width: 140px; }
+.apr-settings .apr-readonly { font-size: 0.95em; opacity: 0.85; padding: 6px 0; }
+
+.apr-settings .apr-group-row { display: block; padding: 8px 12px; }
+.apr-settings .apr-group-main {
+    display: grid;
+    grid-template-columns: 1fr 100px auto auto;
+    gap: 8px;
+    align-items: center;
+}
+.apr-settings .apr-group-name-input { min-width: 0; }
+.apr-settings .apr-group-weight-input { width: 100px; }
+.apr-settings .apr-group-usage { font-size: 0.85em; opacity: 0.6; white-space: nowrap; padding: 0 8px; }
+
+.apr-settings .apr-criterion-row { display: block; padding: 10px 12px; }
+.apr-settings .apr-criterion-main {
+    display: grid;
+    grid-template-columns: auto 1fr 140px 90px auto;
+    gap: 8px;
+    align-items: center;
+}
+.apr-settings .apr-criterion-row.apr-disabled { opacity: 0.55; }
+.apr-settings .apr-criterion-desc { margin: 6px 0 0 56px; font-size: 0.85em; opacity: 0.75; }
+.apr-settings .apr-name-input { min-width: 0; }
+.apr-settings .apr-weight-input { width: 90px; }
+.apr-settings .apr-group-select { width: 140px; }
+.apr-settings .apr-row-actions { display: flex; gap: 4px; }
+.apr-settings .apr-row-actions .btn { padding: 2px 8px; line-height: 1; }
+.apr-settings .apr-desc-editor { margin: 8px 0 0 56px; display: flex; flex-direction: column; gap: 6px; }
+.apr-settings .apr-desc-textarea { resize: vertical; min-height: 80px; font-size: 0.9em; }
+.apr-settings .apr-desc-editor-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.apr-settings .apr-row-actions .btn.active { background: rgba(255,193,7,0.18); border-color: #ffc107; color: #ffc107; }
+.apr-settings .apr-add-row { padding: 8px 12px; }
+.apr-settings .apr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.apr-settings .apr-danger-btn { margin-left: auto; }
+.apr-settings .apr-msg { margin-left: 8px; font-size: 0.9em; opacity: 0.85; flex-basis: 100%; padding-top: 6px; }
+.apr-settings .apr-msg-success { color: #28a745; opacity: 1; }
+.apr-settings .apr-msg-error { color: #dc3545; opacity: 1; }
+@media (max-width: 720px) {
+    .apr-settings .apr-criterion-main {
+        grid-template-columns: auto 1fr;
+        grid-auto-rows: auto;
+    }
+    .apr-settings .apr-group-select,
+    .apr-settings .apr-weight-input,
+    .apr-settings .apr-row-actions { grid-column: 1 / -1; }
+    .apr-settings .apr-criterion-desc,
+    .apr-settings .apr-desc-editor { margin-left: 0; }
+    .apr-settings .apr-group-main {
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
+    }
+    .apr-settings .apr-group-usage { padding: 0; }
+}
