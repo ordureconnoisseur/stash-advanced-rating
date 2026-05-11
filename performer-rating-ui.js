@@ -71,8 +71,12 @@
             const res = await gqlClient(`{ configuration { ui } }`);
             const ui = (res.data && res.data.configuration && res.data.configuration.ui) || {};
             const rso = ui.ratingSystemOptions || {};
-            if (rso.type === "DECIMAL") return { precision: 1, label: "Decimal (10-point)" };
-            const precision = STAR_PRECISION_MAP[rso.starPrecision] || 20;
+            // Stash's UI writes lowercase ("stars", "tenth"); GraphQL also
+            // accepts uppercase. Normalize before lookup.
+            const type = (rso.type || "").toUpperCase();
+            const sp = (rso.starPrecision || "").toUpperCase();
+            if (type === "DECIMAL") return { precision: 1, label: "Decimal (10-point)" };
+            const precision = STAR_PRECISION_MAP[sp] || 20;
             return { precision, label: STAR_PRECISION_LABEL[precision] || ("Stars (" + precision + ")") };
         } catch (e) {
             return { precision: 20, label: "Full star (default)" };
@@ -395,6 +399,26 @@
             function updateGeneral(patch) {
                 setGeneral(function (cur) { return Object.assign({}, cur, patch); });
             }
+
+            /* Stash exposes no event for ratingSystemOptions changes, so poll
+               while the panel is mounted. Cheap (one tiny GraphQL hit every
+               3 s) and only runs while this settings tab is open. */
+            R.useEffect(function () {
+                const interval = setInterval(async function () {
+                    try {
+                        const info = await getStashRatingInfo();
+                        setGeneral(function (cur) {
+                            if (!cur) return cur;
+                            if (cur.rating_precision === info.precision && cur.rating_precision_label === info.label) return cur;
+                            return Object.assign({}, cur, {
+                                rating_precision: info.precision,
+                                rating_precision_label: info.label,
+                            });
+                        });
+                    } catch (e) { /* ignore */ }
+                }, 3000);
+                return function () { clearInterval(interval); };
+            }, []);
 
             function updateCriterion(idx, patch) {
                 setCriteria(function (cur) {

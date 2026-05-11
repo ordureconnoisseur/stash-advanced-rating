@@ -234,9 +234,13 @@ def get_rating_precision():
         config = stash.get_configuration() or {}
         ui = config.get("ui") or {}
         rso = ui.get("ratingSystemOptions") or {}
-        if rso.get("type") == "DECIMAL":
+        # Stash's UI writes lowercase ("stars", "tenth"); GraphQL also accepts
+        # uppercase. Normalize before lookup.
+        type_ = (rso.get("type") or "").upper()
+        sp = (rso.get("starPrecision") or "").upper()
+        if type_ == "DECIMAL":
             return 1
-        return STAR_PRECISION_MAP.get(rso.get("starPrecision"), 20)
+        return STAR_PRECISION_MAP.get(sp, 20)
     except Exception as e:
         log.warning(f"GET RATING PRECISION: Falling back to 20: {e}")
         return 20
