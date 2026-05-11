@@ -226,16 +226,20 @@ def tag_prefix(criterion):
 STAR_PRECISION_MAP = {"FULL": 20, "HALF": 10, "QUARTER": 5, "TENTH": 1}
 
 def get_rating_precision():
-    """Derive precision from Stash's own UI rating-system setting. FULL → 20,
-    HALF → 10, QUARTER → 5, TENTH → 1. Defaults to 10 if unset/unreadable."""
+    """Derive precision from Stash's own UI rating-system setting.
+    STARS: FULL → 20, HALF → 10, QUARTER → 5, TENTH → 1. Defaults to FULL
+    when starPrecision is unset (matches Stash's own UI default).
+    DECIMAL: 1, since rating100 is stored in single-unit steps."""
     try:
         config = stash.get_configuration() or {}
         ui = config.get("ui") or {}
         rso = ui.get("ratingSystemOptions") or {}
-        return STAR_PRECISION_MAP.get(rso.get("starPrecision"), 10)
+        if rso.get("type") == "DECIMAL":
+            return 1
+        return STAR_PRECISION_MAP.get(rso.get("starPrecision"), 20)
     except Exception as e:
-        log.warning(f"GET RATING PRECISION: Falling back to 10: {e}")
-        return 10
+        log.warning(f"GET RATING PRECISION: Falling back to 20: {e}")
+        return 20
 
 
 def handle_actions(json_input, stash):

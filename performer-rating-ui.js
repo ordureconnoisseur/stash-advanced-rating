@@ -63,16 +63,22 @@
     const STAR_PRECISION_MAP = { FULL: 20, HALF: 10, QUARTER: 5, TENTH: 1 };
     const STAR_PRECISION_LABEL = { 20: "Full star", 10: "Half star", 5: "Quarter star", 1: "Tenth star" };
 
-    async function getStashRatingPrecision() {
+    /* Read Stash's rating system. When ratingSystemOptions is absent the
+       Stash UI defaults to STARS / FULL, so we mirror that. DECIMAL mode
+       stores rating100 in 1-unit steps (0–100 from a 10-point input). */
+    async function getStashRatingInfo() {
         try {
             const res = await gqlClient(`{ configuration { ui } }`);
             const ui = (res.data && res.data.configuration && res.data.configuration.ui) || {};
             const rso = ui.ratingSystemOptions || {};
-            return STAR_PRECISION_MAP[rso.starPrecision] || 10;
+            if (rso.type === "DECIMAL") return { precision: 1, label: "Decimal (10-point)" };
+            const precision = STAR_PRECISION_MAP[rso.starPrecision] || 20;
+            return { precision, label: STAR_PRECISION_LABEL[precision] || ("Stars (" + precision + ")") };
         } catch (e) {
-            return 10;
+            return { precision: 20, label: "Full star (default)" };
         }
     }
+    async function getStashRatingPrecision() { return (await getStashRatingInfo()).precision; }
 
     async function configurePlugin(input) {
         const mutation = `mutation ConfigurePlugin($plugin_id: ID!, $input: Map!) {
@@ -366,17 +372,18 @@
 
             R.useEffect(function () {
                 let cancelled = false;
-                Promise.all([getPluginConfig(), getStashRatingPrecision()])
+                Promise.all([getPluginConfig(), getStashRatingInfo()])
                     .then(function (results) {
                         if (cancelled) return;
                         const cfg = results[0];
-                        const precision = results[1];
+                        const info = results[1];
                         const gs = groupsFromConfig(cfg);
                         setGroups(gs);
                         setCriteria(criteriaFromConfig(cfg, gs));
                         setGeneral({
                             allow_destructive_actions: coerceBool(cfg.allow_destructive_actions, false),
-                            rating_precision: precision,
+                            rating_precision: info.precision,
+                            rating_precision_label: info.label,
                         });
                     })
                     .catch(function (e) {
@@ -765,10 +772,10 @@
                     R.createElement("div", null,
                         R.createElement("h3", null, "Rating Star Precision"),
                         R.createElement("div", { className: "sub-heading" },
-                            "Auto-matched to Stash's rating-system setting (Interface → Custom CSS / Behaviour). Change it there and reopen this panel.")),
+                            "Auto-matched to Stash's rating system setting (Settings → Interface → Editing → Rating System). Change it there and reopen this panel.")),
                     R.createElement("div", { className: "apr-general-control" },
                         R.createElement("span", { className: "apr-readonly" },
-                            (STAR_PRECISION_LABEL[general.rating_precision] || "Custom") + " (" + general.rating_precision + ")"))),
+                            general.rating_precision_label + " (" + general.rating_precision + ")"))),
                 R.createElement("div", { key: "g-destr", className: "setting" },
                     R.createElement("div", null,
                         R.createElement("h3", null, "Allow Destructive Actions"),

@@ -1,6 +1,6 @@
 name: Advanced Performer Rating
 description: Calculates performer ratings from category-based tags. Configure criteria, weights, and names in the plugin settings panel.
-version: 2.3.1
+version: 2.3.2
 url: https://github.com/ordureconnoisseur/stash-advanced-performer-rating
 exec:
   - python
