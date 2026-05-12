@@ -296,6 +296,56 @@
         return res.data.findPerformer.tags;
     }
 
+    async function getPerformerCustomFields(performerId) {
+        const query = `query FindPerformerCF($id: ID!) { findPerformer(id: $id) { custom_fields } }`;
+        const res = await gqlClient(query, { id: performerId });
+        return (res.data && res.data.findPerformer && res.data.findPerformer.custom_fields) || {};
+    }
+
+    async function updatePerformerCustomField(performerId, key, value) {
+        const partial = {};
+        partial[key] = value; // null clears the field
+        const mutation = `mutation PerformerUpdateCF($input: PerformerUpdateInput!) {
+            performerUpdate(input: $input) { id }
+        }`;
+        await gqlClient(mutation, { input: { id: performerId, custom_fields: { partial } } });
+    }
+
+    function computeRating100FromCustomFields(customFields, groups, criteria, ratingPrecision, cfPrefix) {
+        const enabled = criteria.filter(c => c.enabled);
+        if (!enabled.length) return null;
+        const hitsByGroup = {};
+        groups.forEach(g => { hitsByGroup[g.id] = []; });
+        let totalHits = 0;
+        for (const c of enabled) {
+            const val = customFields[cfPrefix + c.name];
+            if (val === null || val === undefined) continue;
+            const score = parseInt(val, 10);
+            if (isNaN(score)) continue;
+            const bucket = hitsByGroup[c.group];
+            if (!bucket) continue;
+            bucket.push({ score, w: parseFloat(c.weight) || 0 });
+            totalHits++;
+        }
+        if (totalHits < 1) return null;
+        const contributions = [];
+        for (const g of groups) {
+            const hits = hitsByGroup[g.id] || [];
+            const wsum = hits.reduce((n, h) => n + h.w, 0);
+            if (wsum <= 0) continue;
+            const gavg = hits.reduce((n, h) => n + h.score * h.w, 0) / wsum;
+            const gw = parseFloat(g.weight) || 0;
+            if (gw <= 0) continue;
+            contributions.push({ avg: gavg, w: gw });
+        }
+        if (!contributions.length) return null;
+        const totalW = contributions.reduce((n, c) => n + c.w, 0);
+        const finalAvg = contributions.reduce((n, c) => n + c.avg * c.w, 0) / totalW;
+        const precision = Math.max(1, parseInt(ratingPrecision, 10) || 20);
+        let r100 = Math.round(Math.round(finalAvg * 20 / precision) * precision);
+        return Math.max(precision, Math.min(100, r100));
+    }
+
     async function getTagIdByName(name) {
         const query = `query FindTags($tag_filter: TagFilterType) {
             findTags(tag_filter: $tag_filter) { tags { id name } }
@@ -400,9 +450,15 @@
         modalContent.querySelector('.perf-rating-close').addEventListener('click', handleClose);
         modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) handleClose(); });
 
-        const { groups, criteria } = await getRatingModel();
+        const config = await getPluginConfig();
+        const useCF = coerceBool(config.use_custom_fields, false);
+        const cfPrefix = config.custom_field_prefix || "";
+        const groups = groupsFromConfig(config);
+        const criteria = criteriaFromConfig(config, groups).filter(c => c.enabled);
         const precision = await getStashRatingPrecision();
-        let performerTags = await getPerformerTags(performerId);
+
+        let performerTags = useCF ? [] : await getPerformerTags(performerId);
+        let customFields  = useCF ? await getPerformerCustomFields(performerId) : {};
 
         function render() {
             const listContainer = modalContent.querySelector('.ratings-list');
@@ -410,15 +466,33 @@
             const breakdownEl = modalContent.querySelector('.adv-rating-breakdown');
             listContainer.innerHTML = '';
 
-            const breakdown = computeBreakdown(performerTags, groups, criteria, precision);
-            const currentScores = breakdown.scoresByCriterion;
+            // Build scoresByCriterion (keyed by c.id) from whichever source is active.
+            let scoresByCriterion;
+            let breakdown = null;
+            if (useCF) {
+                scoresByCriterion = {};
+                criteria.forEach(c => {
+                    const val = customFields[cfPrefix + c.name];
+                    if (val !== null && val !== undefined) {
+                        const s = parseInt(val, 10);
+                        if (!isNaN(s) && s !== 0) scoresByCriterion[c.id] = s;
+                    }
+                });
+                breakdownEl.innerHTML = '';
+            } else {
+                breakdown = computeBreakdown(performerTags, groups, criteria, precision);
+                scoresByCriterion = breakdown.scoresByCriterion;
+            }
+
+            const totalRated = Object.keys(scoresByCriterion).length;
+            const totalUnrated = criteria.length - totalRated;
 
             subhead.innerHTML = '';
             const summary = document.createElement('span');
             summary.className = 'adv-rating-summary';
-            summary.innerText = `${breakdown.totalCriteria} criteria · ${breakdown.totalRated} rated`;
-            if (breakdown.totalUnrated > 0) {
-                summary.innerHTML += ` · <span class="adv-rating-unrated-pill">${breakdown.totalUnrated} unrated</span>`;
+            summary.innerText = `${criteria.length} criteria · ${totalRated} rated`;
+            if (totalUnrated > 0) {
+                summary.innerHTML += ` · <span class="adv-rating-unrated-pill">${totalUnrated} unrated</span>`;
             }
             subhead.appendChild(summary);
 
@@ -433,7 +507,7 @@
 
                 groupCriteria.forEach(c => {
                     const prefix = tagPrefix(c);
-                    const score = currentScores[c.id] !== undefined ? currentScores[c.id] : null;
+                    const score = scoresByCriterion[c.id] !== undefined ? scoresByCriterion[c.id] : null;
                     const row = document.createElement('div');
                     row.className = 'rating-row' + (score === null ? ' rating-unrated' : '');
                     const label = document.createElement('span'); label.className = 'rating-label';
@@ -464,8 +538,14 @@
                         });
                         star.addEventListener('click', async () => {
                             listContainer.style.opacity = '0.5';
-                            if (await updatePerformerTag(performerId, performerTags, prefix, i)) {
-                                performerTags = await getPerformerTags(performerId); render();
+                            if (useCF) {
+                                await updatePerformerCustomField(performerId, cfPrefix + c.name, i);
+                                customFields = await getPerformerCustomFields(performerId);
+                                render();
+                            } else {
+                                if (await updatePerformerTag(performerId, performerTags, prefix, i)) {
+                                    performerTags = await getPerformerTags(performerId); render();
+                                }
                             }
                             listContainer.style.opacity = '1';
                         });
@@ -475,8 +555,14 @@
                     clearBtn.title = 'Remove Category Rating';
                     clearBtn.addEventListener('click', async () => {
                         listContainer.style.opacity = '0.5';
-                        if (await updatePerformerTag(performerId, performerTags, prefix, null)) {
-                            performerTags = await getPerformerTags(performerId); render();
+                        if (useCF) {
+                            await updatePerformerCustomField(performerId, cfPrefix + c.name, null);
+                            customFields = await getPerformerCustomFields(performerId);
+                            render();
+                        } else {
+                            if (await updatePerformerTag(performerId, performerTags, prefix, null)) {
+                                performerTags = await getPerformerTags(performerId); render();
+                            }
                         }
                         listContainer.style.opacity = '1';
                     });
@@ -485,7 +571,7 @@
                 });
             });
 
-            renderBreakdown(breakdownEl, breakdown);
+            if (breakdown) renderBreakdown(breakdownEl, breakdown);
         }
 
         function renderBreakdown(container, b) {
@@ -1280,18 +1366,22 @@
 
     async function recalculateAllPerformers(groups, criteria, config, onProgress) {
         const ratingPrecision = await getStashRatingPrecision();
-        const minimumRequired = 1;
+        const useCF = coerceBool(config.use_custom_fields, false);
+        const cfPrefix = config.custom_field_prefix || "";
+        const fields = useCF ? "id name rating100 custom_fields" : "id name rating100 tags { id name }";
         const res = await gqlClient(`{
             findPerformers(filter: {per_page: -1}) {
                 count
-                performers { id name rating100 tags { id name } }
+                performers { ${fields} }
             }
         }`);
         const performers = (res.data && res.data.findPerformers && res.data.findPerformers.performers) || [];
         let updated = 0, skipped = 0;
         for (let i = 0; i < performers.length; i++) {
             const p = performers[i];
-            const newRating = computeRating100(p.tags || [], groups, criteria, ratingPrecision, minimumRequired);
+            const newRating = useCF
+                ? computeRating100FromCustomFields(p.custom_fields || {}, groups, criteria, ratingPrecision, cfPrefix)
+                : computeRating100(p.tags || [], groups, criteria, ratingPrecision, 1);
             if (newRating === null || newRating === p.rating100) { skipped++; }
             else {
                 await gqlClient(`mutation($input: PerformerUpdateInput!) {
