@@ -351,14 +351,22 @@
             ]);
             if (!triggerBtn.isConnected) return;
             const breakdown = computeBreakdown(performerTags, groups, criteria, 10);
-            if (breakdown.totalRated === 0 || breakdown.totalUnrated === 0) {
-                triggerBtn.title = breakdown.totalRated === 0
-                    ? "Open Performer Ratings — no criteria rated yet"
-                    : "Open Performer Ratings — all criteria rated";
+            // No badge when fully rated.
+            if (breakdown.totalUnrated === 0) {
+                triggerBtn.title = "Open Performer Ratings — all criteria rated";
                 return;
             }
             triggerBtn.classList.add('adv-rating-btn--incomplete');
-            triggerBtn.title = `Open Performer Ratings — ${breakdown.totalUnrated} of ${breakdown.totalCriteria} criteria still unrated`;
+            // Differentiate "never rated" (zero progress) from "partially
+            // rated" (had ratings, missing some). Both show a count badge,
+            // but the partial state gets a distinct accent so a previously-
+            // complete performer with a newly-added criterion stands out.
+            if (breakdown.totalRated > 0) {
+                triggerBtn.classList.add('adv-rating-btn--partial');
+                triggerBtn.title = `Open Performer Ratings — ${breakdown.totalUnrated} of ${breakdown.totalCriteria} criteria still unrated`;
+            } else {
+                triggerBtn.title = `Open Performer Ratings — ${breakdown.totalCriteria} criteria to rate`;
+            }
             const badge = document.createElement('span');
             badge.className = 'adv-rating-btn-badge';
             badge.innerText = breakdown.totalUnrated;

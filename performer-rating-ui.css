@@ -6,10 +6,13 @@
 .adv-rating-btn:hover { background: #ffc107; color: #000; transform: scale(1.05); }
 .adv-rating-btn--incomplete { padding-right: 4px; }
 .adv-rating-btn-badge {
-    background: #ffc107; color: #000; border-radius: 8px; padding: 0 5px;
+    background: #888; color: #000; border-radius: 8px; padding: 0 5px;
     margin-left: 5px; font-size: 0.85em; font-weight: 700; line-height: 1.3;
     min-width: 16px; text-align: center;
 }
+/* Partial rating (had some scores, now missing some — likely a newly-added
+   criterion) is the high-attention state — use the accent colour. */
+.adv-rating-btn--partial .adv-rating-btn-badge { background: #ffc107; }
 .adv-rating-btn:hover .adv-rating-btn-badge { background: #000; color: #ffc107; }
 .adv-rating-modal-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75);
