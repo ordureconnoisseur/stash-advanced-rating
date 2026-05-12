@@ -413,6 +413,8 @@ def calculate_rating(stash, performer):
                 score = int(float(str(val)))
             except (ValueError, TypeError):
                 continue
+            if score == 0:
+                continue  # 0 means not yet rated
             bucket = hits_by_group.get(c["group"])
             if bucket is not None:
                 bucket.append((score, float(c["weight"])))

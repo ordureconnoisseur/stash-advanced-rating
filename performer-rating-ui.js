@@ -321,7 +321,7 @@
             const val = customFields[cfPrefix + c.name];
             if (val === null || val === undefined) continue;
             const score = parseInt(val, 10);
-            if (isNaN(score)) continue;
+            if (isNaN(score) || score === 0) continue; // 0 means not yet rated
             const bucket = hitsByGroup[c.group];
             if (!bucket) continue;
             bucket.push({ score, w: parseFloat(c.weight) || 0 });
