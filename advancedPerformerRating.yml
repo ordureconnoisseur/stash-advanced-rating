@@ -11,7 +11,39 @@ ui:
     - performer-rating-ui.js
   css:
     - performer-rating-ui.css
+settings:
+  use_custom_fields:
+    displayName: "Use Custom Fields"
+    description: "Read scores from performer custom fields instead of tags. Field key = optional prefix + criterion name (e.g. 'Face')."
+    type: BOOLEAN
+  custom_field_prefix:
+    displayName: "Custom Field Prefix"
+    description: "Optional prefix for custom field keys (e.g. 'rating_' makes keys like 'rating_Face'). Leave blank to use criterion names as-is."
+    type: STRING
+
 hooks:
   - name: Recalculate Rating on Update
     triggeredBy:
       - Performer.Update.Post
+
+tasks:
+  - name: Process All Performers
+    description: Recalculate ratings for all performers
+    defaultArgs:
+      mode: process_performers
+  - name: Create Tags
+    description: Generate required rating tags
+    defaultArgs:
+      mode: create_tags
+  - name: Remove Tags
+    description: Remove all plugin-generated tags (requires Allow Destructive Actions)
+    defaultArgs:
+      mode: remove_tags
+  - name: Migrate Tag Ratings to Custom Fields
+    description: Read tag-based scores and write them as custom fields on each performer
+    defaultArgs:
+      mode: migrate_to_custom_fields
+  - name: Initialize Custom Fields
+    description: Set all criterion custom fields to 0 on performers that don't have them yet
+    defaultArgs:
+      mode: init_custom_fields

@@ -76,6 +76,8 @@ DEFAULT_CRITERIA = [
 
 settings = {
     "allow_destructive_actions": False,
+    "use_custom_fields": False,
+    "custom_field_prefix": "",
 }
 
 # Any performer with at least this many matching rating tags gets a rating.
@@ -223,6 +225,50 @@ def tag_prefix(criterion):
     return f"{criterion['name']}{TAG_SUFFIX}"
 
 
+def cf_key(criterion):
+    prefix = settings.get("custom_field_prefix", "")
+    return f"{prefix}{criterion['name']}"
+
+
+FIND_PERFORMERS_WITH_TAGS_GQL = """
+query FindPerformersTagged($page: Int!) {
+  findPerformers(filter: { per_page: 100, page: $page }) {
+    count
+    performers { id name tags { name } }
+  }
+}
+"""
+
+FIND_PERFORMERS_WITH_CF_GQL = """
+query FindPerformersWithCF($page: Int!) {
+  findPerformers(filter: { per_page: 100, page: $page }) {
+    count
+    performers { id name custom_fields }
+  }
+}
+"""
+
+UPDATE_PERFORMER_CF_GQL = """
+mutation UpdatePerformerCF($id: ID!, $custom_fields: CustomFieldsInput!) {
+  performerUpdate(input: { id: $id, custom_fields: $custom_fields }) { id }
+}
+"""
+
+
+def fetch_performer_custom_fields(stash, performer_id):
+    query = """
+    query GetPerformerCF($id: ID!) {
+      findPerformer(id: $id) { custom_fields }
+    }
+    """
+    try:
+        result = stash.call_GQL(query, {"id": performer_id})
+        return (result.get("findPerformer") or {}).get("custom_fields") or {}
+    except Exception as e:
+        log.error(f"FETCH PERFORMER CUSTOM FIELDS: {e}")
+        return {}
+
+
 STAR_PRECISION_MAP = {"FULL": 20, "HALF": 10, "QUARTER": 5, "TENTH": 1}
 
 def get_rating_precision():
@@ -246,6 +292,71 @@ def get_rating_precision():
         return 20
 
 
+def migrate_tags_to_custom_fields():
+    log.info("MIGRATING TAG RATINGS TO CUSTOM FIELDS ...")
+    enabled = [c for c in criteria if c["enabled"]]
+    by_prefix = {tag_prefix(c): c for c in enabled}
+    page, total = 1, 0
+    while True:
+        result = stash.call_GQL(FIND_PERFORMERS_WITH_TAGS_GQL, {"page": page})
+        performers = (result.get("findPerformers") or {}).get("performers") or []
+        if not performers:
+            break
+        for performer in performers:
+            tags = [t["name"] for t in (performer.get("tags") or [])]
+            cf_updates = {}
+            for tag in tags:
+                match = TAG_PATTERN.match(tag)
+                if not match:
+                    continue
+                category, score = match.groups()
+                category = category.strip()
+                c = by_prefix.get(category)
+                if not c:
+                    continue
+                cf_updates[cf_key(c)] = int(score)
+            if not cf_updates:
+                continue
+            try:
+                stash.call_GQL(UPDATE_PERFORMER_CF_GQL, {
+                    "id": performer["id"],
+                    "custom_fields": {"partial": cf_updates},
+                })
+                total += 1
+                log.debug(f"MIGRATE: Performer {performer['name']} — {cf_updates}")
+            except Exception as e:
+                log.error(f"MIGRATE: Performer {performer['name']} failed: {e}")
+        page += 1
+    log.info(f"MIGRATE: {total} performers updated")
+
+
+def init_custom_fields():
+    log.info("INITIALIZING CUSTOM FIELDS ...")
+    enabled = [c for c in criteria if c["enabled"]]
+    page, total = 1, 0
+    while True:
+        result = stash.call_GQL(FIND_PERFORMERS_WITH_CF_GQL, {"page": page})
+        performers = (result.get("findPerformers") or {}).get("performers") or []
+        if not performers:
+            break
+        for performer in performers:
+            cf = performer.get("custom_fields") or {}
+            missing = {cf_key(c): 0 for c in enabled if cf_key(c) not in cf}
+            if not missing:
+                continue
+            try:
+                stash.call_GQL(UPDATE_PERFORMER_CF_GQL, {
+                    "id": performer["id"],
+                    "custom_fields": {"partial": missing},
+                })
+                total += 1
+                log.debug(f"INIT: Performer {performer['name']} — {list(missing.keys())}")
+            except Exception as e:
+                log.error(f"INIT: Performer {performer['name']} failed: {e}")
+        page += 1
+    log.info(f"INIT: {total} performers initialized")
+
+
 def handle_actions(json_input, stash):
     log.debug("HANDLING ACTIONS ...")
     args = json_input.get("args", {})
@@ -257,6 +368,10 @@ def handle_actions(json_input, stash):
     elif mode == "remove_tags":
         # Pass the full set so legacy/old-named tags also get cleaned up
         removeTags(criteria)
+    elif mode == "migrate_to_custom_fields":
+        migrate_tags_to_custom_fields()
+    elif mode == "init_custom_fields":
+        init_custom_fields()
 
 
 def handle_hooks(json_input, stash):
@@ -285,24 +400,40 @@ def calculate_rating(stash, performer):
     if not enabled:
         return
 
-    # name -> criterion lookup against the tag prefix (already includes ★)
-    by_prefix = {tag_prefix(c): c for c in enabled}
-    # group_id -> list of (score, criterion_weight)
     hits_by_group = {g["id"]: [] for g in groups}
-    tags = [tag['name'] for tag in (performer.get('tags') or [])]
-    for tag in tags:
-        match = TAG_PATTERN.match(tag)
-        if not match:
-            continue
-        category, score = match.groups()
-        category = category.strip()
-        c = by_prefix.get(category)
-        if not c:
-            continue
-        bucket = hits_by_group.get(c["group"])
-        if bucket is None:
-            continue
-        bucket.append((int(score), float(c["weight"])))
+
+    if settings.get("use_custom_fields", False):
+        custom_fields = fetch_performer_custom_fields(stash, performer["id"])
+        for c in enabled:
+            key = cf_key(c)
+            val = custom_fields.get(key)
+            if val is None:
+                continue
+            try:
+                score = int(float(str(val)))
+            except (ValueError, TypeError):
+                continue
+            bucket = hits_by_group.get(c["group"])
+            if bucket is not None:
+                bucket.append((score, float(c["weight"])))
+        log.debug(f"SCORES (custom fields): {hits_by_group}")
+    else:
+        by_prefix = {tag_prefix(c): c for c in enabled}
+        tags = [tag['name'] for tag in (performer.get('tags') or [])]
+        for tag in tags:
+            match = TAG_PATTERN.match(tag)
+            if not match:
+                continue
+            category, score = match.groups()
+            category = category.strip()
+            c = by_prefix.get(category)
+            if not c:
+                continue
+            bucket = hits_by_group.get(c["group"])
+            if bucket is None:
+                continue
+            bucket.append((int(score), float(c["weight"])))
+        log.debug(f"SCORES (tags): {hits_by_group}")
 
     total_hits = sum(len(h) for h in hits_by_group.values())
     if total_hits < MINIMUM_REQUIRED_TAGS:
