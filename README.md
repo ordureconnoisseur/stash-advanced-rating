@@ -40,11 +40,13 @@ Inspired by the [Advanced Rating System](https://discourse.stashapp.cc/t/advance
 
 ## Usage
 
-Click the **★+** button on any performer's page to open the rating modal.
+Click the **★+** button on any performer's page to open the rating modal. The button shows a count badge when the performer has criteria still unrated — yellow if the performer is partially rated (e.g. you've added a new criterion since they were last rated), grey when fully unrated. No badge means every criterion is rated.
 
 ![Rating Modal](screenshot-modal.png)
 
-Rate each category using the 1–5 star selectors. Hover over the ⓘ icon next to a category name to see its description. As you click stars, the corresponding category tag (`Face ★: 4`, etc.) is applied to the performer and the overall Stash rating recalculates automatically via the `Performer.Update.Post` hook.
+The modal renders each criterion grouped by its configured group, with a bold header per group. Rate each category using the 1–5 star selectors. Hover over the ⓘ icon next to a category name to see its description. Unrated criteria are highlighted with a small pill so you can see at a glance which ones still need a score. As you click stars, the corresponding category tag (`Face ★: 4`, etc.) is applied to the performer and the overall Stash rating recalculates automatically via the `Performer.Update.Post` hook.
+
+Click **Score breakdown** at the bottom of the modal to expand a panel that shows exactly how the rating is being calculated: per-group weighted average, then the final weighted mean across groups, and the rating100 result after precision snapping. The collapsed/expanded state is remembered across sessions.
 
 ![Performer Page](screenshot-performer-page.png)
 
@@ -54,7 +56,7 @@ Open **Settings → Plugins → Advanced Performer Rating** to access the settin
 
 ### General
 
-- **Rating Star Precision** — auto-matched from Stash's own rating-system setting. `FULL = 20`, `HALF = 10`, `QUARTER = 5`, `TENTH = 1`. Change Stash's precision in Settings → Interface and reopen the panel to refresh.
+- **Rating Star Precision** — auto-matched from Stash's own rating-system setting (Settings → Interface → Editing → Rating System). `FULL = 20`, `HALF = 10`, `QUARTER = 5`, `TENTH = 1`, `DECIMAL = 1`. The panel polls Stash every few seconds so the displayed value tracks any change you make without reopening the panel.
 - **Allow Destructive Actions** — gates the orange "Remove orphaned tags" and red "Delete all rating tags" buttons. Off by default.
 
 ### Groups
