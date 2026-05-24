@@ -1,0 +1,49 @@
+name: Advanced Rating
+description: Rate scenes and performers across configurable criteria; the overall Stash rating is calculated from a weighted average. Configure groups, criteria, weights, and descriptions in the plugin settings panel. Replaces the separate Advanced Scene Rating and Advanced Performer Rating plugins; existing settings are imported automatically on first run.
+version: 3.0.0
+url: https://github.com/ordureconnoisseur/stash-advanced-rating
+exec:
+  - python
+  - "{pluginDir}/advancedRating.py"
+interface: raw
+ui:
+  javascript:
+    - advanced-rating-ui.js
+  css:
+    - advanced-rating-ui.css
+hooks:
+  - name: Recalculate Scene Rating on Update
+    triggeredBy:
+      - Scene.Update.Post
+  - name: Recalculate Performer Rating on Update
+    triggeredBy:
+      - Performer.Update.Post
+tasks:
+  - name: Process All Scenes
+    description: Recalculate ratings for every scene based on current criteria.
+    defaultArgs:
+      mode: process_scenes
+  - name: Process All Performers
+    description: Recalculate ratings for every performer based on current criteria.
+    defaultArgs:
+      mode: process_performers
+  - name: Create Scene Rating Tags
+    description: Create the scene rating tag hierarchy in Stash.
+    defaultArgs:
+      mode: create_scene_tags
+  - name: Create Performer Rating Tags
+    description: Create the performer rating tag hierarchy in Stash.
+    defaultArgs:
+      mode: create_performer_tags
+  - name: Remove Scene Rating Tags
+    description: Delete the scene rating tag hierarchy (requires allow_destructive_actions).
+    defaultArgs:
+      mode: remove_scene_tags
+  - name: Remove Performer Rating Tags
+    description: Delete the performer rating tag hierarchy (requires allow_destructive_actions).
+    defaultArgs:
+      mode: remove_performer_tags
+  - name: Migrate Settings From Old Plugins
+    description: Import settings from advancedSceneRating and advancedPerformerRating into this plugin. Runs automatically on first hook fire; this task lets you re-run it manually.
+    defaultArgs:
+      mode: migrate

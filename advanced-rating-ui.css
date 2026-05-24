@@ -1,0 +1,530 @@
+/* Trigger Button Styles */
+.adv-rating-btn {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid #ffc107;
+    color: #ffc107;
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 0.85em;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    transition: all 0.2s;
+    font-weight: bold;
+    white-space: nowrap;
+    height: 24px;
+}
+
+.adv-rating-btn:hover {
+    background: #ffc107;
+    color: #000;
+    transform: scale(1.05);
+}
+.adv-rating-btn--incomplete { padding-right: 4px; }
+.adv-rating-btn-badge {
+    background: #888; color: #000; border-radius: 8px; padding: 0 5px;
+    margin-left: 5px; font-size: 0.85em; font-weight: 700; line-height: 1.3;
+    min-width: 16px; text-align: center;
+}
+.adv-rating-btn--partial .adv-rating-btn-badge { background: #ffc107; }
+.adv-rating-btn:hover .adv-rating-btn-badge { background: #000; color: #ffc107; }
+
+/* The trigger renders the `+` as an SVG icon (see custom-rating-ui.js)
+   so it centres precisely in the pill and inherits the button colour
+   via stroke=currentColor. Size + centre it here so the button works
+   correctly with any theme (the raw SVG has no width/height attrs). */
+.adv-rating-btn-plus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    margin-left: 2px;
+}
+.adv-rating-btn-plus svg {
+    width: 11px;
+    height: 11px;
+    display: block;
+}
+
+/* Favourite Button — sits right of the ★+ rating trigger. Mirrors the
+   rating button's geometry (24px height, 1.05× hover scale) so the
+   two buttons read as a pair. Empty state is a muted red outline
+   heart; "on" state fills the heart red with a soft glow halo. */
+.adv-favourite-btn {
+    background: rgba(244, 67, 54, 0.08);
+    border: 1px solid rgba(244, 67, 54, 0.55);
+    color: rgba(244, 67, 54, 0.75);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    transition: all 0.2s;
+    height: 24px;
+    width: 28px;
+}
+.adv-favourite-btn svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+.adv-favourite-btn:hover {
+    background: rgba(244, 67, 54, 0.2);
+    border-color: #f44336;
+    color: #f44336;
+    transform: scale(1.05);
+}
+.adv-favourite-btn--on {
+    background: #f44336;
+    border-color: #f44336;
+    color: #fff;
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.45);
+}
+.adv-favourite-btn--on:hover {
+    background: #e53935;
+    border-color: #e53935;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(244, 67, 54, 0.6);
+}
+
+/* Floating Action Button (Fallback) */
+.adv-rating-fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--card-bg, #2e3035);
+    border: 1px solid var(--border-color, #444);
+    color: #fff;
+    border-radius: 30px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 1em;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    z-index: 9000;
+    transition: transform 0.2s;
+}
+.adv-rating-fab:hover {
+    transform: scale(1.05);
+}
+
+/* Modal Overlay */
+.adv-rating-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.75);
+    /* Scroll happens on the overlay so tooltips inside the modal aren't
+       clipped by overflow. align-items: flex-start centers horizontally only. */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 5vh 0;
+    overflow-y: auto;
+    z-index: 9999;
+}
+
+/* Modal Content */
+.adv-rating-modal-content {
+    background-color: var(--card-bg, #2e3035);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 8px;
+    padding: 20px;
+    width: 480px;
+    max-width: 90vw;
+    color: var(--text-color, #e0e0e0);
+    box-shadow: 0 5px 25px rgba(0,0,0,0.8);
+    font-family: inherit;
+}
+
+.adv-rating-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color, #444);
+    padding-bottom: 10px;
+}
+
+.adv-rating-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.adv-rating-close {
+    cursor: pointer;
+    font-size: 1.8em;
+    line-height: 1;
+    color: var(--text-muted, #aaa);
+    transition: color 0.2s;
+}
+
+.adv-rating-close:hover {
+    color: #fff;
+}
+
+.ratings-list {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.rating-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.rating-label {
+    flex: 1;
+    font-size: 1.05em;
+}
+
+.rating-stars-modal {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rating-star {
+    cursor: pointer;
+    font-size: 1.6em;
+    color: #ffc107;
+    transition: color 0.1s, transform 0.1s;
+    user-select: none;
+}
+
+.rating-star:hover,
+.rating-star.hovered {
+    color: #ffda6a;
+    transform: scale(1.15);
+}
+
+.rating-clear {
+    cursor: pointer;
+    font-size: 1.4em;
+    color: #dc3545;
+    margin-left: 12px;
+    padding: 0 5px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    user-select: none;
+}
+
+.rating-clear:hover {
+    opacity: 1;
+}
+
+/* Tooltip Styles */
+.rating-label {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.rating-info-icon {
+    font-size: 0.9em;
+    color: #888;
+    margin-left: 8px;
+    cursor: help;
+    position: relative;
+}
+
+.rating-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    width: max-content;
+    max-width: 260px;
+    background-color: var(--gray-dark, #222);
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+    padding: 8px 10px;
+    position: absolute;
+    z-index: 10;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.85rem;
+    font-weight: normal;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    border: 1px solid var(--border-color, #444);
+    transition: opacity 0.2s;
+    line-height: 1.4;
+    white-space: normal;
+    word-wrap: break-word;
+    pointer-events: none;
+}
+
+.rating-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--border-color, #444) transparent transparent transparent;
+}
+
+.rating-info-icon:hover .rating-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* ── Modal: group headers, unrated indicator, breakdown ──────────────── */
+.adv-rating-subhead { font-size: 0.85em; opacity: 0.7; margin-top: 2px; }
+.adv-rating-subhead .adv-rating-unrated-pill { background: rgba(255,193,7,0.18); color: #ffc107; padding: 1px 6px; border-radius: 10px; font-weight: 600; }
+.adv-rating-group-header {
+    font-weight: 700; font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #ffc107; margin: 14px 0 6px 0; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,193,7,0.25);
+}
+.adv-rating-group-header:first-child { margin-top: 0; }
+.rating-row.rating-unrated .rating-label { opacity: 0.8; }
+.rating-row .adv-rating-unrated-pill {
+    font-size: 0.7em; background: rgba(255,193,7,0.18); color: #ffc107;
+    padding: 1px 6px; border-radius: 10px; margin-left: 8px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+}
+.adv-rating-breakdown {
+    margin-top: 16px; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.85em;
+}
+.adv-rating-breakdown-heading {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: 0; padding: 0; margin: 0;
+    color: inherit; cursor: pointer;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 1em; opacity: 0.7; text-align: left;
+}
+.adv-rating-breakdown-heading:hover { opacity: 1; }
+.adv-rating-breakdown-caret {
+    display: inline-block; transition: transform 0.15s ease; font-size: 0.7em;
+}
+.adv-rating-breakdown-heading.open .adv-rating-breakdown-caret { transform: rotate(90deg); }
+.adv-rating-breakdown-body { display: none; margin-top: 8px; }
+.adv-rating-breakdown-body.open { display: block; }
+.adv-rating-breakdown-group { margin-bottom: 10px; }
+.adv-rating-breakdown-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.adv-rating-breakdown-name { font-weight: 600; }
+.adv-rating-breakdown-weight { font-size: 0.85em; opacity: 0.6; }
+.adv-rating-breakdown-formula { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 0.95em; opacity: 0.9; margin-top: 2px; }
+.adv-rating-breakdown-note { font-size: 0.85em; color: #ffc107; opacity: 0.85; margin-top: 2px; }
+.adv-rating-breakdown-empty { opacity: 0.55; font-style: italic; }
+.adv-rating-breakdown-final {
+    margin-top: 10px; padding-top: 8px;
+    border-top: 1px dashed rgba(255,255,255,0.12);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* ── Settings panel (PluginApi.patch.instead) ───────────────────────── */
+.apr-settings { width: 100%; }
+.apr-settings,
+.apr-settings .setting,
+.apr-settings .setting > div,
+.apr-settings .setting > div > * { text-align: left; }
+.apr-settings .setting { justify-content: flex-start; gap: 16px; }
+.apr-settings .apr-criterion-row,
+.apr-settings .apr-group-row {
+    width: 100%;
+    box-sizing: border-box;
+}
+.apr-settings .apr-criterion-main,
+.apr-settings .apr-group-main {
+    width: 100%;
+    box-sizing: border-box;
+}
+.apr-settings .apr-general-control { display: flex; align-items: center; gap: 8px; }
+.apr-settings .apr-general-control .form-control { max-width: 140px; }
+.apr-settings .apr-readonly { font-size: 0.95em; opacity: 0.85; padding: 6px 0; }
+.apr-settings .apr-group-row { display: block; padding: 8px 12px; }
+.apr-settings .apr-group-main {
+    display: grid;
+    grid-template-columns: 1fr 100px auto auto;
+    gap: 8px;
+    align-items: center;
+}
+.apr-settings .apr-group-name-input { min-width: 0; }
+.apr-settings .apr-group-weight-input { width: 100px; }
+.apr-settings .apr-group-usage { font-size: 0.85em; opacity: 0.6; white-space: nowrap; padding: 0 8px; }
+.apr-settings .apr-criterion-row { display: block; padding: 10px 12px; }
+.apr-settings .apr-criterion-main {
+    display: grid;
+    grid-template-columns: auto 1fr 140px 90px auto;
+    gap: 8px;
+    align-items: center;
+}
+.apr-settings .apr-criterion-row.apr-disabled { opacity: 0.55; }
+.apr-settings .apr-criterion-desc { margin: 6px 0 0 56px; font-size: 0.85em; opacity: 0.75; }
+.apr-settings .apr-name-input { min-width: 0; }
+.apr-settings .apr-weight-input { width: 90px; }
+.apr-settings .apr-group-select { width: 140px; }
+.apr-settings .apr-row-actions { display: flex; gap: 4px; }
+.apr-settings .apr-row-actions .btn { padding: 2px 8px; line-height: 1; }
+.apr-settings .apr-desc-editor { margin: 8px 0 0 56px; display: flex; flex-direction: column; gap: 6px; }
+.apr-settings .apr-desc-textarea { resize: vertical; min-height: 80px; font-size: 0.9em; }
+.apr-settings .apr-desc-editor-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.apr-settings .apr-row-actions .btn.active { background: rgba(255,193,7,0.18); border-color: #ffc107; color: #ffc107; }
+.apr-settings .apr-add-row { padding: 8px 12px; }
+.apr-settings .apr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.apr-settings .apr-danger-btn { margin-left: auto; }
+.apr-settings .apr-msg { margin-left: 8px; font-size: 0.9em; opacity: 0.85; flex-basis: 100%; padding-top: 6px; }
+.apr-settings .apr-msg-success { color: #28a745; opacity: 1; }
+.apr-settings .apr-msg-error { color: #dc3545; opacity: 1; }
+@media (max-width: 720px) {
+    .apr-settings .apr-criterion-main {
+        grid-template-columns: auto 1fr;
+        grid-auto-rows: auto;
+    }
+    .apr-settings .apr-group-select,
+    .apr-settings .apr-weight-input,
+    .apr-settings .apr-row-actions { grid-column: 1 / -1; }
+    .apr-settings .apr-criterion-desc,
+    .apr-settings .apr-desc-editor { margin-left: 0; }
+    .apr-settings .apr-group-main {
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
+    }
+    .apr-settings .apr-group-usage { padding: 0; }
+}
+
+/* ── Scene-card favourite button ──────────────────────────────────
+   Pinned to the top-right of every scene-card thumbnail. Designed to
+   look + behave exactly like Stash's native performer-card favourite
+   heart: transparent surface, plain heart icon, white when not
+   favourited, pink when favourited. Hidden when not favourited unless
+   the card is hovered; persistently visible when favourited.
+
+   Themes can re-skin this freely — e.g. Refract wraps it in a glass-
+   square overlay to match its scene-card grid language. The overrides
+   below are deliberately low-specificity (single class) so themes
+   beat them with a `body.<themeName>` prefix.
+   ───────────────────────────────────────────────────────────────── */
+/* No background / border / shadow on ANY state — the base
+   .adv-favourite-btn carries a red-tinted toolbar-pill background,
+   the --on selector adds a solid red fill + box-shadow, and both
+   :hover variants add their own background. Explicitly stripping
+   bg/border/box-shadow from every card-variant state keeps the
+   button as a naked heart on the thumbnail, matching native Stash. */
+.adv-favourite-card-btn,
+.adv-favourite-card-btn:hover,
+.adv-favourite-card-btn.adv-favourite-btn--on,
+.adv-favourite-card-btn.adv-favourite-btn--on:hover {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+.adv-favourite-card-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    opacity: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, opacity 0.18s, transform 0.15s;
+}
+.adv-favourite-card-btn svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    /* Dark drop so the white heart stays legible against bright
+       thumbnails. Disappears naturally on the pink favourited state. */
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+/* Native-style visibility: appear on card hover when unfavourited,
+   stay visible permanently when favourited. */
+.scene-card:hover .adv-favourite-card-btn,
+.adv-favourite-card-btn.adv-favourite-btn--on {
+    opacity: 1;
+}
+.adv-favourite-card-btn:hover {
+    color: #fff;
+    transform: scale(1.1);
+}
+.adv-favourite-card-btn.adv-favourite-btn--on {
+    color: #ff66cc;
+}
+.adv-favourite-card-btn.adv-favourite-btn--on:hover {
+    color: #ff99dd;
+}
+
+/* When stash-multiview's picking mode is active, its .mv-add-btn takes
+   the top:8px/right:8px slot. Shift the favourite button left by the
+   add-button width + an 8px gap so the two sit side by side instead
+   of overlapping. Pure CSS — when multiview isn't installed,
+   body.mv-picking-mode never appears and the favourite stays in the
+   default top-right position. */
+body.mv-picking-mode .adv-favourite-card-btn {
+    right: 44px;
+}
+/* ── Performer modal close button ───────────────────────────────────
+   The performer-rating modal uses .perf-rating-close instead of
+   .adv-rating-close; merged from the predecessor performer plugin. */
+.perf-rating-close {
+    cursor: pointer;
+    font-size: 1.8em;
+    line-height: 1;
+    color: #aaa;
+}
+.perf-rating-close:hover {
+    color: #fff;
+}
+
+/* ── Migration banner (shown in settings until migration_done) ────── */
+.apr-migration-banner {
+    margin: 12px 0;
+    padding: 10px 14px;
+    border-radius: 4px;
+    background: rgba(255, 193, 7, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    color: #ffc107;
+    font-size: 0.95em;
+}
+.apr-migration-banner--success {
+    background: rgba(76, 175, 80, 0.12);
+    border-color: rgba(76, 175, 80, 0.4);
+    color: #66bb6a;
+}
+.apr-migration-banner--error {
+    background: rgba(244, 67, 54, 0.12);
+    border-color: rgba(244, 67, 54, 0.4);
+    color: #ef5350;
+}
+
+/* ── Per-domain settings section header ───────────────────────────── */
+.apr-settings h2 {
+    margin: 28px 0 8px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #444;
+    font-size: 1.3em;
+    font-weight: 600;
+}
+.apr-settings h2:first-of-type {
+    margin-top: 12px;
+}
