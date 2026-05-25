@@ -2,18 +2,30 @@
 
 Rate Stash scenes **and** performers across configurable criteria. The overall Stash rating (`rating100`) is calculated as a weighted average of per-criterion tag scores, grouped into weight-balanced buckets.
 
-This plugin replaces the two predecessor plugins:
+This plugin supersedes two predecessor plugins:
 
-- [stash-advanced-scene-rating](https://github.com/ordureconnoisseur/stash-advanced-scene-rating)
-- [stash-advanced-performer-rating](https://github.com/ordureconnoisseur/stash-advanced-performer-rating)
+- [stash-advanced-scene-rating](https://github.com/ordureconnoisseur/stash-advanced-scene-rating) (archived)
+- `stash-advanced-performer-rating` — renamed to this repo, so its old URL redirects here
 
-Both are now superseded by this single plugin. Existing settings are imported automatically the first time the plugin runs (see [Migration](#migration) below).
+Existing settings from either predecessor are imported automatically the first time the plugin runs (see [Migration](#migration) below). Existing rating tags continue to work unchanged.
 
 ## Install
 
-1. Drop the `stash-advanced-rating/` folder into your Stash plugins directory (e.g. `~/.stash/plugins/` or the configured `plugins_path`).
-2. In Stash: **Settings → Plugins → Reload Plugins**.
+### Option 1 — Automatic (recommended)
+
+1. In Stash go to **Settings → Plugins → Available Plugins → Add Source** and enter:
+   ```
+   https://ordureconnoisseur.github.io/plugins/main/index.yml
+   ```
+2. Find **Advanced Rating** in the plugin browser and click **Install**.
 3. Open **Settings → Plugins → Advanced Rating** to configure groups/criteria and to trigger automatic migration from the old plugins.
+
+### Option 2 — Manual
+
+1. Download this repository (Code → Download ZIP) and extract it.
+2. Place the extracted folder into your Stash plugins directory (e.g. `~/.stash/plugins/advancedRating/`).
+3. In Stash: **Settings → Plugins → Reload Plugins**.
+4. Open **Settings → Plugins → Advanced Rating** to configure groups/criteria and to trigger automatic migration from the old plugins.
 
 ## How it works
 

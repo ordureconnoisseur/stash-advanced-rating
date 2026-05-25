@@ -1,0 +1,35 @@
+name: Sync to plugins repo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone plugins repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PLUGINS_REPO_TOKEN }}@github.com/ordureconnoisseur/plugins.git plugins-repo
+
+      - name: Copy files
+        run: |
+          mkdir -p plugins-repo/plugins/advancedRating
+          cp -r * plugins-repo/plugins/advancedRating/ 2>/dev/null || true
+          # Strip dirs that should ship only on GitHub.
+          rm -rf plugins-repo/plugins/advancedRating/.github
+          # Strip the cloned plugins-repo that cp -r picked up — leaving it
+          # creates an embedded git submodule reference.
+          rm -rf plugins-repo/plugins/advancedRating/plugins-repo
+
+      - name: Commit and push
+        run: |
+          cd plugins-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugins/advancedRating/
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "sync: advancedRating $(git -C .. rev-parse --short HEAD)"
+          git push
