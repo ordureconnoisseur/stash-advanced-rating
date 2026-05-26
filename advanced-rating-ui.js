@@ -338,10 +338,6 @@
     function computeBreakdown(entityTags, groups, criteria, ratingPrecision) {
         const byPrefix = {};
         criteria.forEach(c => { byPrefix[tagPrefix(c)] = c; });
-        // Legacy fallback: also accept unsuffixed tag names.
-        if (TAG_SUFFIX) {
-            criteria.forEach(c => { if (byPrefix[c.name] === undefined) byPrefix[c.name] = c; });
-        }
         const scoresByCriterion = {};
         for (const tag of entityTags) {
             const m = (tag.name || "").match(CATEGORY_PATTERN);
@@ -389,12 +385,6 @@
         if (!enabled.length) return null;
         const byPrefix = {};
         enabled.forEach(c => { byPrefix[tagPrefix(c)] = c; });
-        // Backward-compat with pre-suffix unsuffixed tag names.
-        if (TAG_SUFFIX) {
-            enabled.forEach(c => {
-                if (byPrefix[c.name] === undefined) byPrefix[c.name] = c;
-            });
-        }
         const hitsByGroup = {};
         groups.forEach(g => { hitsByGroup[g.id] = []; });
         for (const tag of entityTags) {
@@ -518,19 +508,42 @@
         return destroyed;
     }
 
-    async function renameRatingTags(oldPrefix, newPrefix) {
+    async function renameRatingTags(oldPrefix, newPrefix, rootTagId) {
         const targets = [oldPrefix];
         for (let i = 0; i <= 5; i++) targets.push(oldPrefix + ": " + i);
         let renamedAny = false;
         for (const oldName of targets) {
-            const id = await getTagIdByName(oldName);
-            if (!id) continue;
+            const res = await gqlClient(`query FindTags($tag_filter: TagFilterType) {
+                findTags(tag_filter: $tag_filter) { tags { id name parents { id } } }
+            }`, { tag_filter: { name: { value: oldName, modifier: "EQUALS" } } });
+            const tag = (res.data && res.data.findTags && res.data.findTags.tags || [])[0];
+            if (!tag) continue;
+            const parentIds = (tag.parents || []).map(p => p.id);
+            // Only rename tags that belong to this domain's rating tree. The
+            // criterion root has the user-visible rating-system parent; level
+            // tags (Foo ★: 3) have the criterion root as a parent. So a tag is
+            // in-tree iff its parents include rootTagId OR any of its parents
+            // is itself a child of rootTagId.
+            let inTree = parentIds.includes(rootTagId);
+            if (!inTree && parentIds.length) {
+                const parentLookup = await gqlClient(`query($filter: TagFilterType) {
+                    findTags(tag_filter: $filter, filter: {per_page: -1}) {
+                        tags { id parents { id } }
+                    }
+                }`, { filter: { parents: { value: [rootTagId], modifier: "INCLUDES" } } });
+                const rootChildren = new Set(((parentLookup.data && parentLookup.data.findTags && parentLookup.data.findTags.tags) || []).map(t => t.id));
+                inTree = parentIds.some(pid => rootChildren.has(pid));
+            }
+            if (!inTree) {
+                console.warn("[advancedRating] skipping rename of '" + oldName + "' — not under rating root");
+                continue;
+            }
             const suffix = oldName.slice(oldPrefix.length);
             const newName = newPrefix + suffix;
             try {
                 await gqlClient(`mutation TagUpdate($input: TagUpdateInput!) {
                     tagUpdate(input: $input) { id name }
-                }`, { input: { id, name: newName } });
+                }`, { input: { id: tag.id, name: newName } });
                 renamedAny = true;
             } catch (e) { console.warn("[advancedRating] rename failed", oldName, "→", newName, e); }
         }
@@ -1361,28 +1374,16 @@
 
                     let renameSummary = "";
                     if (renames.length) {
-                        let renamedCount = 0;
-                        for (const rn of renames) {
-                            const result = await renameRatingTags(rn.from, rn.to);
-                            if (result.renamedAny) renamedCount++;
-                        }
-                        if (renamedCount) renameSummary = " Renamed " + renamedCount + " tag group(s).";
-                    }
-
-                    // Legacy migration: rename pre-suffix unsuffixed tags in
-                    // place. Idempotent — renameRatingTags is a no-op when no
-                    // legacy tag exists for the criterion.
-                    let migratedCount = 0;
-                    if (TAG_SUFFIX) {
-                        for (const c of criteria) {
-                            const legacyName = c.name;
-                            const newName = tagPrefix(c);
-                            if (legacyName === newName) continue;
-                            const result = await renameRatingTags(legacyName, newName);
-                            if (result.renamedAny) migratedCount++;
+                        const rootTagId = await getTagIdByName(domain.rootTagName);
+                        if (rootTagId) {
+                            let renamedCount = 0;
+                            for (const rn of renames) {
+                                const result = await renameRatingTags(rn.from, rn.to, rootTagId);
+                                if (result.renamedAny) renamedCount++;
+                            }
+                            if (renamedCount) renameSummary = " Renamed " + renamedCount + " tag group(s).";
                         }
                     }
-                    const migrateSummary = migratedCount ? " Migrated " + migratedCount + " legacy tag group(s)." : "";
 
                     const created = await createMissingTags(domain, criteria);
                     const createPieces = [];
@@ -1391,7 +1392,7 @@
                     if (created.createdLevels) createPieces.push(created.createdLevels + " level tag(s)");
                     const createSummary = createPieces.length ? " Created " + createPieces.join(", ") + "." : "";
 
-                    setSavingState({ saving: false, message: "Saved." + renameSummary + migrateSummary + createSummary, kind: "success", scope: domain.entityType });
+                    setSavingState({ saving: false, message: "Saved." + renameSummary + createSummary, kind: "success", scope: domain.entityType });
                 } catch (e) {
                     setSavingState({ saving: false, message: "Save failed: " + (e && e.message ? e.message : e), kind: "error", scope: domain.entityType });
                 }

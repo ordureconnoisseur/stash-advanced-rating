@@ -127,14 +127,6 @@ def calculate_rating(entity, criteria, groups, precision, log):
     if not enabled:
         return None
     by_prefix = {tag_prefix(c): c for c in enabled}
-    # Backward-compat: also accept the legacy unsuffixed name. Hook keeps
-    # rating entities correctly while users haven't yet clicked Save in the
-    # panel to migrate their tags.
-    if TAG_SUFFIX:
-        for c in enabled:
-            legacy = c["name"]
-            if legacy not in by_prefix:
-                by_prefix[legacy] = c
 
     hits_by_group = {g["id"]: [] for g in groups}
     tags = [tag["name"] for tag in (entity.get("tags") or [])]
