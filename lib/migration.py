@@ -16,8 +16,29 @@ NEW_PLUGIN_ID = "advancedRating"
 OLD_SCENE_ID = "advancedSceneRating"
 OLD_PERFORMER_ID = "advancedPerformerRating"
 
+# Redundant predecessor config blocks to clear once their settings live under
+# advancedRating. Stash's configurePlugin can only replace a block, not delete
+# it, so the best we can do via the API is empty it to `{}` (a harmless stub).
+# `stashAppAdvancedRating` is an even older orphan whose settings the merged
+# plugin no longer reads.
+LEGACY_PLUGIN_IDS = [OLD_SCENE_ID, OLD_PERFORMER_ID, "stashAppAdvancedRating"]
+
 MIGRATION_FLAG = "migration_done"
 SHARED_DESTRUCTIVE_KEY = "allow_destructive_actions"
+
+
+def _clear_legacy_blocks(stash, all_plugins, log):
+    """Empty any leftover predecessor config blocks to `{}`. Best-effort and
+    idempotent: skips blocks that are already empty or absent."""
+    for pid in LEGACY_PLUGIN_IDS:
+        existing = all_plugins.get(pid)
+        if not existing:
+            continue
+        try:
+            stash.configure_plugin(pid, {})
+            log.info(f"MIGRATE: Cleared leftover '{pid}' config block.")
+        except Exception as e:
+            log.error(f"MIGRATE: Failed to clear '{pid}' config: {e}")
 
 
 def _rewrite_keys(src_config, prefix):
@@ -52,6 +73,9 @@ def migrate(stash, log, force=False):
 
     own = all_plugins.get(NEW_PLUGIN_ID, {}) or {}
     if not force and own.get(MIGRATION_FLAG):
+        # Already migrated, but earlier versions left the predecessor blocks
+        # behind — clear them now so existing installs self-heal.
+        _clear_legacy_blocks(stash, all_plugins, log)
         return False
 
     old_scene = all_plugins.get(OLD_SCENE_ID, {}) or {}
@@ -64,6 +88,7 @@ def migrate(stash, log, force=False):
             log.info("MIGRATE: No legacy plugin configs found; marked migration_done.")
         except Exception as e:
             log.error(f"MIGRATE: Failed to set migration flag: {e}")
+        _clear_legacy_blocks(stash, all_plugins, log)
         return False
 
     new_values = {}
@@ -83,6 +108,7 @@ def migrate(stash, log, force=False):
             f"{len(_rewrite_keys(old_performer, 'performer_'))} performer keys "
             f"from legacy plugins."
         )
+        _clear_legacy_blocks(stash, all_plugins, log)
         return True
     except Exception as e:
         log.error(f"MIGRATE: Failed to write merged config: {e}")

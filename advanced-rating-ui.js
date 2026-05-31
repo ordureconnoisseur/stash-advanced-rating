@@ -1370,7 +1370,18 @@
                     if (general) {
                         configInput.allow_destructive_actions = !!general.allow_destructive_actions;
                     }
-                    await configurePlugin(configInput);
+                    // Stash's configurePlugin REPLACES the whole plugin config map rather
+                    // than merging into it, so saving one domain would otherwise wipe the
+                    // other domain's keys (and any unrelated settings), reverting them to
+                    // defaults. Start from the existing saved config, drop only this
+                    // domain's keys (clears stale entries for deleted criteria/groups),
+                    // then overlay the new ones.
+                    const merged = {};
+                    for (const k in beforeCfg) {
+                        if (!k.startsWith(domain.prefix)) merged[k] = beforeCfg[k];
+                    }
+                    Object.assign(merged, configInput);
+                    await configurePlugin(merged);
 
                     let renameSummary = "";
                     if (renames.length) {
