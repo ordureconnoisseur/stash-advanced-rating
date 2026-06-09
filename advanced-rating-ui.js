@@ -772,53 +772,64 @@
         }
     }
 
-    async function openModal(domain, entityId) {
-        if (document.querySelector('#' + domain.modalId)) return;
-        const modalOverlay = document.createElement('div');
-        modalOverlay.id = domain.modalId;
-        modalOverlay.className = 'adv-rating-modal-overlay';
-        const modalContent = document.createElement('div');
-        modalContent.className = 'adv-rating-modal-content';
-        // Use a domain-scoped close class so both modals don't share one selector.
-        const closeClass = domain.entityType === "scene" ? "adv-rating-close" : "perf-rating-close";
-        modalContent.innerHTML = `
-            <div class="adv-rating-header">
-                <div>
-                    <h3>${domain.modalTitle}</h3>
-                    <div class="adv-rating-subhead"></div>
-                </div>
-                <span class="${closeClass}">&times;</span>
-            </div>
-            <div class="ratings-list">Loading…</div>
-            <div class="adv-rating-breakdown"></div>
-        `;
-        modalOverlay.appendChild(modalContent);
-        document.body.appendChild(modalOverlay);
-        const handleClose = () => { modalOverlay.remove(); window.location.reload(); };
-        modalContent.querySelector('.' + closeClass).addEventListener('click', handleClose);
-        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) handleClose(); });
+    // Live-sync the entity's overall rating into Stash's Apollo cache so the
+    // native rating stars repaint instantly after a criterion change, with no
+    // page reload (replaces the old close→location.reload crutch). The DB is
+    // updated independently by the Scene/Performer.Update.Post recalc hook;
+    // this just mirrors the freshly computed value into the in-memory cache so
+    // React's toolbar stars reflect it immediately. Degrades silently if a
+    // future Stash drops getClient/cache.modify (the stars then stay stale
+    // until the next navigation/refetch, same as before this existed).
+    function syncRatingToCache(domain, entityId, rating100) {
+        if (typeof rating100 !== 'number') return;
+        try {
+            const SS = (typeof PluginApi !== 'undefined') && PluginApi.utils && PluginApi.utils.StashService;
+            if (!SS || typeof SS.getClient !== 'function') return;
+            const client = SS.getClient();
+            if (!client || !client.cache || typeof client.cache.modify !== 'function') return;
+            const typename = domain.entityType === 'performer' ? 'Performer' : 'Scene';
+            const id = client.cache.identify({ __typename: typename, id: String(entityId) });
+            if (!id) return;
+            client.cache.modify({ id, fields: { rating100: () => rating100 } });
+        } catch (e) {
+            console.warn('[advancedRating] live rating sync failed', e);
+        }
+    }
 
+    // Shared rating renderer used by BOTH the overlay modal and the scene
+    // inline panel. `host` must contain .adv-rating-subhead (optional),
+    // .ratings-list and .adv-rating-breakdown elements. Each criterion edit
+    // saves immediately and live-syncs the overall rating to the Apollo cache.
+    // Returns a controller with refresh().
+    async function mountRatingUI(host, domain, entityId) {
         const { groups, criteria } = await getRatingModel(domain);
         const precision = (await getStashRatingInfo()).precision;
         let entityTags = await domain.fetchEntityTags(entityId);
+        // Latest computed overall rating (null when no contributing groups, in
+        // which case the hook leaves rating100 untouched so we don't sync).
+        let currentRating100 = null;
 
         function render() {
-            const listContainer = modalContent.querySelector('.ratings-list');
-            const subhead = modalContent.querySelector('.adv-rating-subhead');
-            const breakdownEl = modalContent.querySelector('.adv-rating-breakdown');
+            const listContainer = host.querySelector('.ratings-list');
+            const subhead = host.querySelector('.adv-rating-subhead');
+            const breakdownEl = host.querySelector('.adv-rating-breakdown');
             listContainer.innerHTML = '';
 
             const breakdown = computeBreakdown(entityTags, groups, criteria, precision);
             const currentScores = breakdown.scoresByCriterion;
+            currentRating100 = (breakdown.finalAvg !== null && typeof breakdown.rating100 === 'number')
+                ? breakdown.rating100 : null;
 
-            subhead.innerHTML = '';
-            const summary = document.createElement('span');
-            summary.className = 'adv-rating-summary';
-            summary.innerText = `${breakdown.totalCriteria} criteria · ${breakdown.totalRated} rated`;
-            if (breakdown.totalUnrated > 0) {
-                summary.innerHTML += ` · <span class="adv-rating-unrated-pill">${breakdown.totalUnrated} unrated</span>`;
+            if (subhead) {
+                subhead.innerHTML = '';
+                const summary = document.createElement('span');
+                summary.className = 'adv-rating-summary';
+                summary.innerText = `${breakdown.totalCriteria} criteria · ${breakdown.totalRated} rated`;
+                if (breakdown.totalUnrated > 0) {
+                    summary.innerHTML += ` · <span class="adv-rating-unrated-pill">${breakdown.totalUnrated} unrated</span>`;
+                }
+                subhead.appendChild(summary);
             }
-            subhead.appendChild(summary);
 
             groups.forEach(g => {
                 const groupCriteria = criteria.filter(c => c.group === g.id);
@@ -867,6 +878,7 @@
                             listContainer.style.opacity = '0.5';
                             if (await updateEntityCriterionTag(domain, entityId, entityTags, prefix, i)) {
                                 entityTags = await domain.fetchEntityTags(entityId); render();
+                                syncRatingToCache(domain, entityId, currentRating100);
                             }
                             listContainer.style.opacity = '1';
                         });
@@ -878,6 +890,7 @@
                         listContainer.style.opacity = '0.5';
                         if (await updateEntityCriterionTag(domain, entityId, entityTags, prefix, null)) {
                             entityTags = await domain.fetchEntityTags(entityId); render();
+                            syncRatingToCache(domain, entityId, currentRating100);
                         }
                         listContainer.style.opacity = '1';
                     });
@@ -963,6 +976,42 @@
         }
 
         render();
+        return {
+            // Re-pull tags from the server and repaint (used when something
+            // external may have changed the entity's ratings).
+            refresh: async () => { entityTags = await domain.fetchEntityTags(entityId); render(); },
+        };
+    }
+
+    async function openModal(domain, entityId) {
+        if (document.querySelector('#' + domain.modalId)) return;
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = domain.modalId;
+        modalOverlay.className = 'adv-rating-modal-overlay';
+        const modalContent = document.createElement('div');
+        modalContent.className = 'adv-rating-modal-content';
+        // Use a domain-scoped close class so both modals don't share one selector.
+        const closeClass = domain.entityType === "scene" ? "adv-rating-close" : "perf-rating-close";
+        modalContent.innerHTML = `
+            <div class="adv-rating-header">
+                <div>
+                    <h3>${domain.modalTitle}</h3>
+                    <div class="adv-rating-subhead"></div>
+                </div>
+                <span class="${closeClass}">&times;</span>
+            </div>
+            <div class="ratings-list">Loading…</div>
+            <div class="adv-rating-breakdown"></div>
+        `;
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+        // No page reload on close: ratings save per-click and the toolbar stars
+        // are live-synced via syncRatingToCache, so closing just drops the overlay.
+        const handleClose = () => { modalOverlay.remove(); };
+        modalContent.querySelector('.' + closeClass).addEventListener('click', handleClose);
+        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) handleClose(); });
+
+        await mountRatingUI(modalContent, domain, entityId);
     }
 
     /* ─────────────────────────────────────────────────────────────────
