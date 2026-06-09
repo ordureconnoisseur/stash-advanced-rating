@@ -538,3 +538,55 @@ body.mv-picking-mode .adv-favourite-card-btn {
 .apr-settings h2:first-of-type {
     margin-top: 12px;
 }
+
+/* ── Scene inline ratings panel (in the scene-details sidebar) ──────────
+   Sits under .scene-toolbar; toggled by the ★+ trigger. Collapsed by
+   default; .open reveals it. Reuses the shared .rating-row / .rating-stars-
+   modal / .adv-rating-breakdown styles, so only the container chrome and
+   header are defined here. Sized to fit the narrow sidebar column. */
+.adv-rating-inline-panel {
+    display: none;
+    margin: 10px 0 12px 0;
+    padding: 12px 14px;
+    background: var(--card-bg, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border-color, #444);
+    border-radius: 8px;
+    color: var(--text-color, #e0e0e0);
+    font-family: inherit;
+}
+.adv-rating-inline-panel.open {
+    display: block;
+    animation: adv-rating-inline-in 0.16s ease;
+}
+@keyframes adv-rating-inline-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.adv-rating-inline-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color, #444);
+}
+.adv-rating-inline-title {
+    font-weight: 600;
+    font-size: 1.02em;
+    white-space: nowrap;
+}
+.adv-rating-inline-panel .adv-rating-subhead {
+    margin-top: 0;
+    text-align: right;
+}
+/* Slightly tighter rows + stars than the overlay so they fit the sidebar. */
+.adv-rating-inline-panel .rating-row { margin-bottom: 9px; }
+.adv-rating-inline-panel .rating-label { font-size: 1em; }
+.adv-rating-inline-panel .rating-star { font-size: 1.4em; }
+.adv-rating-inline-panel .adv-rating-breakdown { margin-top: 12px; }
+
+/* Trigger pressed state while the panel is open. */
+.adv-rating-btn--active {
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.5) inset;
+}

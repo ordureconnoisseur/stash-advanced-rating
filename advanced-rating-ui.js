@@ -255,6 +255,13 @@
 
     const DOMAINS = [sceneDomain, performerDomain];
 
+    // Scene inline-panel constants. Declared here (not in the inline-panel
+    // section below) because onLocationChange() runs at load and calls
+    // removeScenePanel() — referencing these before a later `const` line would
+    // hit the temporal dead zone and abort trigger injection.
+    const INLINE_PANEL_ID = "adv-rating-inline-panel";
+    const INLINE_OPEN_KEY = "asrInlineOpen";
+
     /* ─── Domain-aware config helpers ────────────────────────────────── */
     function groupsFromConfig(config, domain) {
         const raw = config[domain.prefix + "group_ids"];
@@ -628,6 +635,9 @@
                     lastPaths[key] = path;
                     const existing = document.querySelector('#' + domain.triggerId);
                     if (existing) existing.remove();
+                    // Drop the stale inline panel when moving to a new scene so
+                    // it can't show the previous scene's ratings.
+                    if (domain.entityType === 'scene') removeScenePanel();
                     startPolling(domain, entityId);
                 }
                 // Clear other domain state since URL doesn't match it
@@ -640,12 +650,14 @@
                         }
                         const oex = document.querySelector('#' + other.triggerId);
                         if (oex) oex.remove();
+                        if (other.entityType === 'scene') removeScenePanel();
                     }
                 }
                 return;
             }
         }
         // No domain matched — clear everything.
+        removeScenePanel();
         for (const domain of DOMAINS) {
             const key = domain.entityType;
             lastPaths[key] = null;
@@ -675,11 +687,21 @@
         triggerBtn.className = 'adv-rating-btn';
         anchor.insertAdjacentElement('afterend', triggerBtn);
         triggerBtn.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation(); openModal(domain, entityId);
+            e.preventDefault(); e.stopPropagation();
+            // Scenes: toggle the inline sidebar panel (video keeps playing).
+            // Performers: keep the overlay modal.
+            if (domain.entityType === 'scene') {
+                toggleScenePanel(entityId);
+            } else {
+                openModal(domain, entityId);
+            }
         });
         annotateUnratedCount(domain, triggerBtn, entityId);
         if (domain.hasFavourite) {
             injectFavouriteBtn(triggerBtn, entityId);
+        }
+        if (domain.entityType === 'scene') {
+            restoreScenePanel(entityId);
         }
     }
 
@@ -1012,6 +1034,76 @@
         modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) handleClose(); });
 
         await mountRatingUI(modalContent, domain, entityId);
+    }
+
+    /* ─────────────────────────────────────────────────────────────────
+       SCENE-ONLY: inline ratings panel
+       Lives in the scene-details sidebar (right under .scene-toolbar) so you
+       can rate while the video keeps playing. Toggled by the same ★+ trigger
+       that opens the overlay on performer pages. Replaces the overlay on the
+       scene page entirely; no page reload (see syncRatingToCache).
+       (INLINE_PANEL_ID / INLINE_OPEN_KEY are declared up near DOMAINS.)
+       ───────────────────────────────────────────────────────────────── */
+    function removeScenePanel() {
+        const p = document.getElementById(INLINE_PANEL_ID);
+        if (p) p.remove();
+    }
+
+    // Create the panel (collapsed) under the scene toolbar if it isn't there
+    // yet. Returns the panel element, or null if the toolbar isn't present.
+    function ensureScenePanel() {
+        let panel = document.getElementById(INLINE_PANEL_ID);
+        if (panel) return panel;
+        const toolbar = document.querySelector('.scene-toolbar');
+        if (!toolbar) return null;
+        panel = document.createElement('div');
+        panel.id = INLINE_PANEL_ID;
+        panel.className = 'adv-rating-inline-panel';
+        panel.innerHTML = `
+            <div class="adv-rating-inline-head">
+                <span class="adv-rating-inline-title">Advanced Ratings</span>
+                <span class="adv-rating-subhead"></span>
+            </div>
+            <div class="ratings-list">Loading…</div>
+            <div class="adv-rating-breakdown"></div>
+        `;
+        toolbar.insertAdjacentElement('afterend', panel);
+        return panel;
+    }
+
+    // Mount the shared rating UI into the panel once (guarded by data-mounted
+    // so re-opening doesn't rebuild). React may wipe the panel on re-render;
+    // ensureScenePanel recreates a fresh (unmounted) node, so it re-mounts.
+    async function mountScenePanelOnce(panel, sceneId) {
+        if (panel.dataset.mounted === sceneId) return;
+        panel.dataset.mounted = sceneId;
+        try {
+            await mountRatingUI(panel, sceneDomain, sceneId);
+        } catch (e) {
+            panel.dataset.mounted = '';
+            console.warn('[advancedRating] inline panel mount failed', e);
+        }
+    }
+
+    function setScenePanelOpen(panel, open, sceneId, persist) {
+        panel.classList.toggle('open', open);
+        const trigger = document.getElementById(sceneDomain.triggerId);
+        if (trigger) trigger.classList.toggle('adv-rating-btn--active', open);
+        if (persist !== false) localStorage.setItem(INLINE_OPEN_KEY, open ? '1' : '0');
+        if (open) mountScenePanelOnce(panel, sceneId);
+    }
+
+    function toggleScenePanel(sceneId) {
+        const panel = ensureScenePanel();
+        if (!panel) return;
+        setScenePanelOpen(panel, !panel.classList.contains('open'), sceneId);
+    }
+
+    // Restore the remembered open state when the trigger (re)appears.
+    function restoreScenePanel(sceneId) {
+        if (localStorage.getItem(INLINE_OPEN_KEY) !== '1') return;
+        const panel = ensureScenePanel();
+        if (panel) setScenePanelOpen(panel, true, sceneId, false);
     }
 
     /* ─────────────────────────────────────────────────────────────────
