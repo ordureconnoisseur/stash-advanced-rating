@@ -1,6 +1,6 @@
 name: Advanced Rating
 description: Rate scenes and performers across configurable criteria; the overall Stash rating is calculated from a weighted average. Configure groups, criteria, weights, and descriptions in the plugin settings panel. Replaces the separate Advanced Scene Rating and Advanced Performer Rating plugins; existing settings are imported automatically on first run.
-version: 3.0.2
+version: 3.0.3
 url: https://github.com/ordureconnoisseur/stash-advanced-rating
 exec:
   - python

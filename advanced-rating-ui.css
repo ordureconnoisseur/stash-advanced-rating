@@ -248,7 +248,9 @@
     border-radius: 6px;
     padding: 8px 10px;
     position: absolute;
-    z-index: 10;
+    /* Sits above the modal header; JS re-positions to fixed coords on hover so
+       top-row tooltips are never clipped or stacked under the title bar. */
+    z-index: 10010;
     bottom: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%);
@@ -272,6 +274,14 @@
     border-width: 5px;
     border-style: solid;
     border-color: var(--border-color, #444) transparent transparent transparent;
+}
+
+/* When there isn't room above the icon, JS flips the tooltip below it; the
+   arrow then points up from the top edge. */
+.rating-tooltip--below::after {
+    top: auto;
+    bottom: 100%;
+    border-color: transparent transparent var(--border-color, #444) transparent;
 }
 
 .rating-info-icon:hover .rating-tooltip {

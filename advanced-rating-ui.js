@@ -711,6 +711,67 @@
         }
     }
 
+    // Criterion info tooltips are rendered through a single shared element
+    // appended to <body> (a "portal"). This is what keeps the top-row tooltips
+    // fully visible: kept inside the modal, they were clipped by the scroll
+    // container and painted under the header, and a transformed theme ancestor
+    // would also break position:fixed math. On <body> there is no transformed
+    // ancestor, so viewport-fixed coordinates are exact, and a high z-index
+    // paints it above the modal overlay. Flips below the icon when there isn't
+    // room above.
+    function getRatingTooltipEl() {
+        let tip = document.getElementById('adv-rating-shared-tooltip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'adv-rating-shared-tooltip';
+            tip.className = 'rating-tooltip';
+            document.body.appendChild(tip);
+        }
+        return tip;
+    }
+
+    function showRatingTooltip(icon, text) {
+        const tip = getRatingTooltipEl();
+        const margin = 8;
+        tip.textContent = text;
+        tip.classList.remove('rating-tooltip--below');
+        // Drive display/position from inline styles so themes can't hide us:
+        // refract ships `.rating-tooltip { display:none }` plus a
+        // `.rating-info-icon:hover .rating-tooltip { display:block }` rule that
+        // only fires while the tooltip is a *descendant* of the icon. Since we
+        // portal the tooltip onto <body>, that hover rule never matches, so we
+        // must set display ourselves (inline beats the theme's non-!important rule).
+        tip.style.setProperty('display', 'block', 'important');
+        tip.style.setProperty('position', 'fixed', 'important');
+        tip.style.transform = 'none';
+        tip.style.bottom = 'auto';
+        tip.style.left = '0px';
+        tip.style.top = '0px';
+        tip.style.visibility = 'hidden';
+        tip.style.opacity = '0';
+        const iconRect = icon.getBoundingClientRect();
+        const tw = tip.offsetWidth;
+        const th = tip.offsetHeight;
+        let left = iconRect.left + iconRect.width / 2 - tw / 2;
+        left = Math.max(margin, Math.min(left, window.innerWidth - tw - margin));
+        const fitsAbove = iconRect.top - th - margin >= 0;
+        const top = fitsAbove ? iconRect.top - th - margin : iconRect.bottom + margin;
+        if (!fitsAbove) tip.classList.add('rating-tooltip--below');
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+        tip.style.visibility = 'visible';
+        tip.style.opacity = '1';
+    }
+
+    function hideRatingTooltip() {
+        const tip = document.getElementById('adv-rating-shared-tooltip');
+        if (tip) {
+            tip.style.visibility = 'hidden';
+            tip.style.opacity = '0';
+            tip.style.setProperty('display', 'none', 'important');
+        }
+    }
+
     async function openModal(domain, entityId) {
         if (document.querySelector('#' + domain.modalId)) return;
         const modalOverlay = document.createElement('div');
@@ -784,8 +845,11 @@
                     const desc = c.description;
                     if (desc) {
                         const infoIcon = document.createElement('span'); infoIcon.className = 'rating-info-icon'; infoIcon.innerHTML = 'ⓘ';
-                        const tooltip = document.createElement('div'); tooltip.className = 'rating-tooltip'; tooltip.innerText = desc;
-                        infoIcon.appendChild(tooltip); label.appendChild(infoIcon);
+                        label.appendChild(infoIcon);
+                        // Show via the shared <body> portal tooltip so the top rows
+                        // aren't clipped/hidden under the modal header.
+                        infoIcon.addEventListener('mouseenter', () => showRatingTooltip(infoIcon, desc));
+                        infoIcon.addEventListener('mouseleave', hideRatingTooltip);
                     }
                     const starsDiv = document.createElement('div'); starsDiv.className = 'rating-stars-modal';
                     for (let i = 1; i <= 5; i++) {
