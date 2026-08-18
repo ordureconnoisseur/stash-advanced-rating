@@ -73,6 +73,16 @@ Tasks available from **Settings → Tasks → Plugin Tasks**:
 - **Remove Scene Rating Tags** / **Remove Performer Rating Tags** — destructive cleanup (requires `allow_destructive_actions`)
 - **Migrate Settings From Old Plugins** — re-run the one-shot import
 
+## Support
+
+Free, and staying that way. If it has earned a place in your setup and you feel like
+chipping in, there is [GitHub Sponsors](https://github.com/sponsors/ordureconnoisseur)
+and [Ko-fi](https://ko-fi.com/ordureconnoisseur).
+
+Current goal: an Apple Developer Program membership (99 USD/year). That is the one
+thing standing between the iOS ports of binge and multiview and a build that lasts
+longer than seven days on someone else's phone.
+
 ## Credits
 
 Based on [stashapp-plugin-advanced-scene-ratings](https://github.com/shackofnoreturn/stashapp-plugin-advanced-scene-ratings) by **shackofnoreturn**. Licensed under AGPL v3.

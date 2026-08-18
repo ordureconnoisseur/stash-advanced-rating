@@ -1275,6 +1275,23 @@
        SETTINGS PANEL: ONE component renders both domains, gated by
        PluginApi.patch.instead("PluginSettings") on plugin_id "advancedRating".
        ───────────────────────────────────────────────────────────────── */
+    /* Quiet support line at the foot of the settings panel. Muted, passive,
+       and below every real setting - no banner, no dismiss state. */
+    function aprSupportNote(R) {
+        const link = (href, label) => R.createElement("a", {
+            href,
+            target: "_blank",
+            rel: "noopener noreferrer"
+        }, label);
+        return R.createElement("div", { className: "setting apr-support" },
+            R.createElement("div", { className: "sub-heading" },
+                "Advanced Rating is free. ",
+                link("https://github.com/sponsors/ordureconnoisseur", "Sponsor"),
+                " or ",
+                link("https://ko-fi.com/ordureconnoisseur", "Ko-fi"),
+                " if you would like to chip in."));
+    }
+
     function buildSettingsPanel() {
         const R = PluginApi.React;
         return function AdvRatingSettings() {
@@ -1870,6 +1887,7 @@
                 generalSection,
                 renderDomainSection(sceneDomain),
                 renderDomainSection(performerDomain),
+                aprSupportNote(R),
             );
         };
     }
