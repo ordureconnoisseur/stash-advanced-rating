@@ -10,36 +10,44 @@ import json
 
 try:
     import stashapi.log as log
-    from stashapi.stashapp import StashInterface
 except ModuleNotFoundError:
-    import subprocess
-    import importlib
-    import site
-    _installed = False
-    for flags in [[], ["--break-system-packages"], ["--user"]]:
-        try:
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "stashapp-tools", "--quiet", "--timeout", "5"] + flags
-            )
-            _installed = True
-            break
-        except subprocess.CalledProcessError:
-            continue
-    if _installed:
-        importlib.invalidate_caches()
-        user_site = site.getusersitepackages()
-        if user_site not in sys.path:
-            sys.path.insert(0, user_site)
-    else:
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "vendor"))
-    import stashapi.log as log
-    from stashapi.stashapp import StashInterface
+    # Rating hooks can use the bundled logger without installing stashapp-tools.
+    from vendor.stashapi import log
+
+
+def load_task_dependencies():
+    try:
+        from stashapi.stashapp import StashInterface
+    except ModuleNotFoundError:
+        import subprocess
+        import importlib
+        import site
+        _installed = False
+        for flags in [[], ["--break-system-packages"], ["--user"]]:
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "stashapp-tools", "--quiet", "--timeout", "5"] + flags
+                )
+                _installed = True
+                break
+            except subprocess.CalledProcessError:
+                continue
+        if _installed:
+            importlib.invalidate_caches()
+            user_site = site.getusersitepackages()
+            if user_site not in sys.path:
+                sys.path.insert(0, user_site)
+        else:
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "vendor"))
+        from stashapi.stashapp import StashInterface
+    return StashInterface
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "lib"))
 import rating_core as core
 import migration as migration_mod
 
 PLUGIN_ID = "advancedRating"
+RATING_MUTATION_ID = "advancedRating.recalculate"
 
 # Scene domain
 SCENE_PREFIX = "scene_"
@@ -99,7 +107,12 @@ def read_stdin_json():
 
 def connect_to_stash(json_input):
     try:
-        return StashInterface(json_input["server_connection"])
+        hook = (json_input.get("args") or {}).get("hookContext") or {}
+        if hook.get("type") in ("Scene.Update.Post", "Performer.Update.Post") and not (json_input.get("args") or {}).get("mode"):
+            from fast_hook_client import RatingHookClient
+            return RatingHookClient(json_input["server_connection"])
+        stash_interface = load_task_dependencies()
+        return stash_interface(json_input["server_connection"])
     except KeyError:
         log.error("STASH INTERFACE: Missing 'server_connection' in input.")
     except Exception as e:
@@ -139,7 +152,7 @@ def handle_scene_hook(stash, hook, settings, precision):
     current = scene.get("rating100") or 0
     if current != new_rating:
         try:
-            stash.update_scene({"id": scene["id"], "rating100": new_rating})
+            stash.update_scene({"id": scene["id"], "rating100": new_rating, "clientMutationId": RATING_MUTATION_ID})
             log.info(f"Updating Scene {scene.get('title', scene['id'])} rating to {new_rating}/100")
         except Exception as e:
             log.error(f"CALCULATE RATING: Failed to update scene {scene.get('id', '?')}: {e}")
@@ -150,7 +163,7 @@ def handle_performer_hook(stash, hook, settings, precision):
     if not performer_id:
         log.error("HANDLE HOOKS: Missing performer ID in hook context.")
         return
-    performer = stash.find_performer(performer_id)
+    performer = stash.find_performer(performer_id, fragment="id name rating100 tags { id name }")
     if not performer:
         log.error(f"HANDLE HOOKS: Performer {performer_id} not found.")
         return
@@ -184,7 +197,7 @@ def process_all_scenes(stash, settings, precision):
                 continue
             current = scene.get("rating100") or 0
             if current != new_rating:
-                stash.update_scene({"id": scene["id"], "rating100": new_rating})
+                stash.update_scene({"id": scene["id"], "rating100": new_rating, "clientMutationId": RATING_MUTATION_ID})
         except Exception as e:
             log.error(f"PROCESS SCENES: Failed on scene {scene.get('id', '?')}: {e}")
     log.info(f"PROCESS SCENES: Done ({total} processed)")
@@ -254,6 +267,18 @@ def handle_hooks(json_input, stash, settings, precision):
 def main():
     log.info("RUNNING ...")
     json_input = read_stdin_json()
+    hook = (json_input.get("args") or {}).get("hookContext") or {}
+    hook_input = hook.get("input")
+    if (hook.get("type") in ("Scene.Update.Post", "Performer.Update.Post")
+            and not (json_input.get("args") or {}).get("mode")
+            and isinstance(hook_input, dict)
+            and hook_input.get("clientMutationId") == RATING_MUTATION_ID
+            and hook.get("inputFields")
+            and set(hook["inputFields"]) <= {"id", "rating100", "clientMutationId"}):
+        # The parent invocation already calculated this score. Exit before
+        # initializing a client or contacting Stash; never suppress another writer's hook.
+        print(json.dumps({"output": "ok"}))
+        return
     stash = connect_to_stash(json_input)
     if not stash:
         return

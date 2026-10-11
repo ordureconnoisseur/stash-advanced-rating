@@ -138,10 +138,10 @@
                 { id });
             return res.data.findScene.tags;
         },
-        async updateEntityTags(id, tagIds) {
+        async updateEntityTags(id, tagIds, rating100 = null) {
             await gqlClient(
                 `mutation SceneUpdate($input: SceneUpdateInput!) { sceneUpdate(input: $input) { id } }`,
-                { input: { id, tag_ids: tagIds } });
+                { input: { id, tag_ids: tagIds, rating100: rating100 ?? undefined } });
         },
         async updateEntityRating(id, rating100) {
             await gqlClient(
@@ -223,10 +223,10 @@
                 { id });
             return res.data.findPerformer.tags;
         },
-        async updateEntityTags(id, tagIds) {
+        async updateEntityTags(id, tagIds, rating100 = null) {
             await gqlClient(
                 `mutation PerformerUpdate($input: PerformerUpdateInput!) { performerUpdate(input: $input) { id } }`,
-                { input: { id, tag_ids: tagIds } });
+                { input: { id, tag_ids: tagIds, rating100: rating100 ?? undefined } });
         },
         async updateEntityRating(id, rating100) {
             await gqlClient(
@@ -557,23 +557,26 @@
         return { renamedAny };
     }
 
-    async function updateEntityCriterionTag(domain, entityId, allTags, prefix, newScore) {
+    async function updateEntityCriterionTag(domain, entityId, allTags, prefix, newScore, groups, criteria, precision) {
         const oldTags = allTags.filter(tag => {
             const match = tag.name.match(CATEGORY_PATTERN);
             return match && match[1].trim() === prefix.trim();
         });
-        let newTagIds = allTags.map(t => t.id).filter(id => !oldTags.find(ot => ot.id === id));
+        const newTags = allTags.filter(tag => !oldTags.find(old => old.id === tag.id));
+        const newTagIds = newTags.map(tag => tag.id);
         if (newScore !== null) {
             const newTagName = `${prefix}: ${newScore}`;
             const newTagId = await getTagIdByName(newTagName);
             if (newTagId) {
                 newTagIds.push(newTagId);
+                newTags.push({ id: newTagId, name: newTagName });
             } else {
                 alert(`Tag "${newTagName}" not found!\n\nClick Save in the plugin settings panel to create the missing tags.`);
                 return false;
             }
         }
-        await domain.updateEntityTags(entityId, newTagIds);
+        const rating100 = computeRating100(newTags, groups, criteria, precision, 1);
+        await domain.updateEntityTags(entityId, newTagIds, rating100);
         return true;
     }
 
@@ -907,7 +910,7 @@
                         });
                         star.addEventListener('click', async () => {
                             listContainer.style.opacity = '0.5';
-                            if (await updateEntityCriterionTag(domain, entityId, entityTags, prefix, i)) {
+                            if (await updateEntityCriterionTag(domain, entityId, entityTags, prefix, i, groups, criteria, precision)) {
                                 entityTags = await domain.fetchEntityTags(entityId); render();
                                 syncRatingToCache(domain, entityId, currentRating100);
                             }
@@ -919,7 +922,7 @@
                     clearBtn.title = 'Remove Category Rating';
                     clearBtn.addEventListener('click', async () => {
                         listContainer.style.opacity = '0.5';
-                        if (await updateEntityCriterionTag(domain, entityId, entityTags, prefix, null)) {
+                        if (await updateEntityCriterionTag(domain, entityId, entityTags, prefix, null, groups, criteria, precision)) {
                             entityTags = await domain.fetchEntityTags(entityId); render();
                             syncRatingToCache(domain, entityId, currentRating100);
                         }
